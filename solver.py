@@ -1,7 +1,7 @@
 import sympy as sp
 import math
 from sympy.abc import x, y
-from sympy.parsing.sympy_parser import (parse_expr, standard_transformations)
+from sympy.parsing.sympy_parser import (parse_expr, standard_transformations, implicit_multiplication_application)
 import re
 import discord
 from discord.ext import commands, tasks
@@ -9,11 +9,15 @@ from discord.ext.commands import Bot
 from discord.utils import get
 bot = Bot(command_prefix="!")
 def process_exp(string):
-	new_str = string.replace('⋅', '*').replace('−', '-')
-	pattern_exp = re.compile('([)x])(\d)')
-	new_str = pattern_exp.sub(r'\1**\2', new_str)
-	return parse_expr(new_str)
-
+	if ('⋅' in string or '−' in string and '^' not in string):
+		new_str = string.replace('⋅', '*').replace('−', '-')
+		pattern_exp = re.compile('([)x])(\d)')
+		new_str = pattern_exp.sub(r'\1**\2', new_str)
+		return parse_expr(new_str)
+	else:
+		new_str = string.replace('^', '**')
+		transformations = (standard_transformations + (implicit_multiplication_application, ))
+		return parse_expr(new_str, transformations=transformations)
 def reverse_exp(string):
 	new_str = string.replace('**', '^')
 	return new_str
@@ -96,8 +100,8 @@ async def reflection(ctx, arg, line):
 		await ctx.send('```'+reverse_exp(str(expr.subs(x, -x+2*a).expand())) + '```')
 	else:
 		await ctx.send('```' + reverse_exp(str((-1*expr + 2*a).expand())) + '```')
-@bot.command()
-async def composition(ctx, expr1, expr2):
+# @bot.command()
+# async def composition(ctx, expr1, expr2):
 
 
-bot.run("no u")
+bot.run("NjgwOTc0OTAzMDUwMzcxMTEz.XlHtVQ.J-3hRwioMFhfiVkrRhxzWJRa1Fo")
