@@ -104,4 +104,4 @@ async def reflection(ctx, arg, line):
 # async def composition(ctx, expr1, expr2):
 
 
-bot.run("NjgwOTc0OTAzMDUwMzcxMTEz.XlHtVQ.J-3hRwioMFhfiVkrRhxzWJRa1Fo")
+bot.run("no u")
