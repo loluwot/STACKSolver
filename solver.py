@@ -159,4 +159,4 @@ async def polydivide(ctx, *args):
 # 	if (arr == ['divisor', 'quotient']):
 #
 
-bot.run("NjgwOTc0OTAzMDUwMzcxMTEz.XlSaWA.xe29RLEw_ig4Gjo3i4FpITGBh0c")
+bot.run("no u")
