@@ -9,15 +9,12 @@ from discord.ext.commands import Bot
 from discord.utils import get
 bot = Bot(command_prefix="!")
 def process_exp(string):
-	if ('⋅' in string or '−' in string and '^' not in string):
-		new_str = string.replace('⋅', '*').replace('−', '-')
-		pattern_exp = re.compile('([)x])(\d)')
-		new_str = pattern_exp.sub(r'\1**\2', new_str)
-		return parse_expr(new_str)
-	else:
-		new_str = string.replace('^', '**')
-		transformations = (standard_transformations + (implicit_multiplication_application, ))
-		return parse_expr(new_str, transformations=transformations)
+	string = string.replace('\\', '').replace('⋅', '*').replace('−', '-').replace('^', '**')
+	pattern_exp = re.compile('([)x])(\d)')
+	string = pattern_exp.sub(r'\1**\2', string)
+
+	transformations = (standard_transformations + (implicit_multiplication_application, ))
+	return parse_expr(string, transformations=transformations)
 def reverse_exp(string):
 	new_str = string.replace('**', '^')
 	return new_str
@@ -36,6 +33,17 @@ def constdiff(arr):
 		deg += 1
 		arr = list(temp)
 	return (arr[0], deg)
+
+def gen_n_poly(n):
+	arr = [i for i in range(n+1)]
+	coeff = sp.symbols(' '.join(arr))
+	x = sp.symbols('x')
+	expr = 0
+	for i in range(n+1):
+		expr += coeff[i]*x**i
+	print(expr)
+	return expr
+
 @bot.event
 async def on_ready():
 	print("ready")
@@ -84,7 +92,7 @@ async def describe(ctx, *, arg):
 
 @bot.command()
 async def seqtoleading(ctx, *ints):
-	"""Calculates leading term given a sequence
+	"""Calculates leading term given a sequence of y values
 		Usage: !seqtoleading [n1] [n2] ...
 		n1, n2 ... should express the sequence of y values"""
 	ints = list(map(int, ints))
@@ -92,16 +100,63 @@ async def seqtoleading(ctx, *ints):
 	lc = diff//math.factorial(deg)
 	await ctx.send('```{}*x^{}```'.format(lc, deg))
 @bot.command()
-async def reflection(ctx, arg, line):
+async def reflection(ctx, expr, line):
+	"""Reflects a function across a line.
+		Usage: !reflection [expr] [line]
+		expr is the expression you would like to reflect
+		line is the line you want to reflect across (e.g. x=1)"""
 	a = int(line[2:])
-	expr = process_exp(arg)
+	expr = process_exp(expr)
 
 	if line[0] == 'x':
 		await ctx.send('```'+reverse_exp(str(expr.subs(x, -x+2*a).expand())) + '```')
 	else:
 		await ctx.send('```' + reverse_exp(str((-1*expr + 2*a).expand())) + '```')
+@bot.command()
+async def composition(ctx, f, g):
+	expr1 = process_exp(f)
+	expr2 = process_exp(g)
+	await ctx.send('```' + reverse_exp(str(expr1.subs(x, expr2).expand()))+ '```')
+
+@bot.command()
+async def reversecomp (ctx, h, f):
+	expr1 = process_exp(h)
+	expr2 = process_exp(f)
+	y = sp.symbols('y')
+	expr3 = expr2.subs(x, y)-expr1
+	print(sp.solve(expr3, y))
+	await ctx.send('```' + ', '.join(list(map(str, sp.solve(expr3, y)))) + '```')
+
+@bot.command()
+async def polydivide(ctx, *args):
+	"""Calculates the quotient and remainder of f(x)/g(x).
+		Usage: !polydivide [f] [g] [optional: d]
+		f is the dividend
+		g is the divisor
+		d is the domain of the coefficients (integer or rational). Defaults to integer."""
+	d = 'ZZ'
+	if (len(args) > 2 and args[2].lower() == 'rational'):
+		d = 'QQ'
+	f = process_exp(args[0])
+	g = process_exp(args[1])
+	q, r = sp.div(f.as_poly(), g.as_poly(), domain=d)
+	await ctx.send('```Quotient: ' + reverse_exp(str(q.as_expr())) + '```')
+	await ctx.send('```Remainder: ' + reverse_exp(str(r.as_expr())) + '```')
+
 # @bot.command()
-# async def composition(ctx, expr1, expr2):
+# async def polysolve(ctx, f, g, type1, type2, solve1, solve2):
+# 	"""Calculates possible missing expressions for divisor, quotient, remainder, or dividend. Can solve for 2 or less missing.
+# 		Usage: !polysolve [f] [g] [type1] [type2] [solve1] [solve2]
+# 		f is the first given expression
+# 		g is the second given expression
+# 		type1 is the type of the expression f is (divisor, quotient, remainder, dividend)
+# 		type2 is the type of expression g is (divisor, quotient, remainder, dividend)
+# 		solve1 is one of the expressions to solve for (divisor, quotient, remainder, dividend)
+# 		solve2 is the other expression to solve for (divisor, quotient, remainder, dividend)
+# 		"""
+# 	arr = [type1, type2]
+# 	arr.sort()
+# 	if (arr == ['divisor', 'quotient']):
+#
 
-
-bot.run("no u")
+bot.run("NjgwOTc0OTAzMDUwMzcxMTEz.XlSaWA.xe29RLEw_ig4Gjo3i4FpITGBh0c")
