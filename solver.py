@@ -10,7 +10,7 @@ from classes import *
 bot = Bot(command_prefix="!")
 
 class_match = [('\[[0-9,\/\+\-\−]{1,}\][\+\−\-]t\*\[[0-9,\/\+\-\−]{1,}\]', Vectorized),
-               ('\[[0-9\/\-\−]{0,}[\+\-\−]?[0-9]{0,}[\*⋅]?t[\+\-\−]?[0-9\/\-\−]{0,},[0-9\/\-\−]{0,}[\+\-\−]?[0-9\/]{0,}[\*⋅]?t[\+\-\−]?[0-9\/\-\−]{0,}\]', Parameterized),
+               ('\[([0-9\/\-\−]{0,}[\+\-\−]?[0-9]{0,}[\*⋅]?t[\+\-\−]?[0-9\/\-\−]{0,},){1,}[0-9\/\-\−]{0,}[\+\-\−]?[0-9\/]{0,}[\*⋅]?t[\+\-\−]?[0-9\/\-\−]{0,}\]', Parameterized),
                ('y=[0-9\/\-\−]{0,}x?[\+\−\-]?[0-9\/\-\−]{0,}', SlopeY),
                ('[0-9\/\-\−]{1,}?\*?[xy][\+\-\−][0-9\/\-\−]{1,}?\*?[xy][\+\-\−]?[0-9\/\-\−]{0,}(=0)?', Cartesian)]
 
@@ -79,12 +79,12 @@ async def angv(ctx, v1:Vector.parse, v2:Vector.parse):
 
 @bot.command()
 async def intercepts(ctx, s:generic_parse):
-	"""Finds x and y intercepts of line.
+	"""Finds all intercepts of n-dimensional line.
 				Usage: !intercepts [line1]
 				Lines can be in Vectorized, Parametric, Slope y-intercept, or Cartesian forms."""
-	xi, yi = s.intercepts()
-	await ctx.send('`x-intercept: {}`'.format(xi))
-	await ctx.send('`y-intercept: {}`'.format(yi))
+	i1 = s.intercepts()
+	for n, v in i1:
+		await ctx.send('`{}-intercept: {}`'.format(n, v))
 
 @bot.command()
 async def tocartesian(ctx, s:generic_parse):
@@ -120,6 +120,43 @@ async def cartfrom2(ctx, p1:Vector.parse, p2:Vector.parse):
 							Usage: !cartfrom2 [p1] [p2]
 							Points must be a comma separated list surrounded by square brackets, without spaces. E.g [1,2,3]"""
 	await ctx.send('`{}`'.format(Vectorized.vec_from_2(p1, p2).converter.to_cartesian()))
+
+@bot.command()
+async def sub(ctx, p1:Vector.parse, p2:Vector.parse):
+	"""Subtracts two vectors.
+									Usage: !sub [v1] [v2]
+									Vectors must be a comma separated list surrounded by square brackets, without spaces. E.g [1,2,3]"""
+	await ctx.send('`{}`'.format(p1-p2))
+
+@bot.command()
+async def add(ctx, p1:Vector.parse, p2:Vector.parse):
+	"""Adds two vectors.
+									Usage: !add [v1] [v2]
+									Vectors must be a comma separated list surrounded by square brackets, without spaces. E.g [1,2,3]"""
+	await ctx.send('`{}`'.format(p1+p2))
+
+@bot.command()
+async def midpoint(ctx, p1:Vector.parse, p2:Vector.parse):
+	"""Finds midpoint of 2 points.
+									Usage: !midpoint [p1] [p2]
+									Points must be a comma separated list surrounded by square brackets, without spaces. E.g [1,2,3]"""
+	await ctx.send('`{}`'.format((p1+p2)/2))
+
+@bot.command()
+async def perp(ctx, p1:Vector.parse):
+	"""Finds perpendicular vector from a vector.
+									Usage: !perp3 [v1]
+									Vectors must be a comma separated list surrounded by square brackets, without spaces. E.g [1,2,3]"""
+	await ctx.send('`{}`'.format(p1.perp()))
+
+@bot.command()
+async def perp3(ctx, p1:Vector.parse, p2:Vector.parse, p3:Vector.parse):
+	"""Finds perpendicular vector from 3 points.
+								Usage: !perp3 [p1] [p2] [p3]
+								Points must be a comma separated list surrounded by square brackets, without spaces. E.g [1,2,3]"""
+	l1 = p1-p2
+	l2 = p2-p3
+	await ctx.send('`{}`'.format(l1.cross(l2)))
 
 
 @bot.event
