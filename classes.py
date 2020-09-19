@@ -4,12 +4,11 @@ import fractions as frac
 import re
 
 
-
 def clean(s):
 	return s.replace('−', '-').replace('⋅', '*').strip()
 
 
-
+dimensions = ['x', 'y', 'z', 'a', 'b', 'c']
 
 
 class Vector:
@@ -24,6 +23,9 @@ class Vector:
 
 	def __sub__(self, other):
 		return self + -other
+
+	def __truediv__(self, scalar):
+		return Vector([x/scalar for x in self.coords])
 
 	def __str__(self):
 		return (('[' + '{},'*len(self.coords))[:-1] + ']').format(*self.coords)
@@ -67,6 +69,8 @@ class Vectorized:
 		self.dir = dir
 		self.converter = Converter(pos=pos, dir=dir)
 
+
+
 	def __str__(self):
 		return '{}+t*{}'.format(self.pos, self.dir)
 
@@ -85,7 +89,7 @@ class Vectorized:
 		return Vectorized(pos, dir)
 
 	def intercepts(self):
-		return self.converter.to_slopey().intercepts()
+		return self.converter.to_param().intercepts()
 
 
 class Parameterized:
@@ -111,8 +115,44 @@ class Parameterized:
 
 		return Parameterized(eqs)
 
+	def eval(self, t):
+		return Vector([p+d*t for p,d in self.eqs])
+
 	def intercepts(self):
-		return self.converter.to_slopey().intercepts()
+		intercepts = []
+		new_inters = []
+		checkdup = []
+		var_list = dimensions[:len(self.eqs)]
+		for p,d in self.eqs:
+			t = -p/d
+			intercepts.append(self.eval(t))
+
+		for i in intercepts:
+			zeroi = [ind for ind,x in enumerate(i.coords) if x == 0]
+			base = []
+			reappend = []
+			for ii, x in enumerate(var_list):
+				if (ii not in zeroi):
+					base.append(x)
+				else:
+					reappend.append(x)
+
+			for index in range(2**len(reappend)-1):
+				temp = base[::]
+				rep = bin(index)[2:].zfill(len(reappend))
+				for ii, c in enumerate(rep):
+					if c == '1':
+						temp.append(reappend[ii])
+
+				temp.sort()
+				if temp not in checkdup:
+					new_inters.append((''.join(temp), i))
+					checkdup.append(temp)
+
+		return new_inters
+
+
+
 
 
 class Cartesian:
@@ -136,7 +176,7 @@ class Cartesian:
 		return Cartesian([a, b, c])
 
 	def intercepts(self):
-		return self.converter.to_slopey().intercepts()
+		return self.converter.to_param().intercepts()
 
 
 class SlopeY:
@@ -183,13 +223,16 @@ class Converter:
 			self.pos, self.dir = Vector([0, b]), Vector([m.denominator, m.numerator])
 
 		# conversion here
-		self.m = self.dir.coords[1] / self.dir.coords[0]
-		tx = (-self.pos.coords[0]) / (self.dir.coords[0])
-		self.b = tx * self.dir.coords[0] + self.pos.coords[1]
-		self.eqs = [[p, d] for p, d in zip(self.pos.coords, self.dir.coords)]
-		normal = self.dir.perp()
-		c = -(normal.dot(self.pos))
-		self.coeff = normal.coords + [c]
+		try:
+			self.m = self.dir.coords[1] / self.dir.coords[0]
+			tx = (-self.pos.coords[0]) / (self.dir.coords[0])
+			self.b = tx * self.dir.coords[0] + self.pos.coords[1]
+			self.eqs = [[p, d] for p, d in zip(self.pos.coords, self.dir.coords)]
+			normal = self.dir.perp()
+			c = -(normal.dot(self.pos))
+			self.coeff = normal.coords + [c]
+		except:
+			pass
 
 	#to classes
 
@@ -204,4 +247,6 @@ class Converter:
 
 	def to_param(self):
 		return Parameterized(self.eqs)
+
+
 
