@@ -9,11 +9,15 @@ from classes import *
 
 bot = Bot(command_prefix="!")
 
-class_match = [('\[[0-9,\/\+\-\−]{1,}\][\+\−\-]t\*\[[0-9,\/\+\-\−]{1,}\]', Vectorized),
-               ('\[([0-9\/\-\−]{0,}[\+\-\−]?[0-9]{0,}[\*⋅]?t[\+\-\−]?[0-9\/\-\−]{0,},){1,}[0-9\/\-\−]{0,}[\+\-\−]?[0-9\/]{0,}[\*⋅]?t[\+\-\−]?[0-9\/\-\−]{0,}\]', Parameterized),
+class_match = [('\[[0-9,\/\+\-\−]{1,}\][\+\−\-][st]\*\[[0-9,\/\+\-\−]{1,}\]', Vectorized),
+               ('\[([0-9\/\-\−]{0,}[\+\-\−]?[0-9]{0,}[\*⋅]?[a-z][\+\-\−]?[0-9\/\-\−]{0,},){1,}[0-9\/\-\−]{0,}[\+\-\−]?[0-9\/]{0,}[\*⋅]?[a-z][\+\-\−]?[0-9\/\-\−]{0,}\]', Parameterized),
                ('y=[0-9\/\-\−]{0,}x?[\+\−\-]?[0-9\/\-\−]{0,}', SlopeY),
-               ('[0-9\/\-\−]{1,}?\*?[xy][\+\-\−][0-9\/\-\−]{1,}?\*?[xy][\+\-\−]?[0-9\/\-\−]{0,}(=0)?', Cartesian)]
+               ('[0-9\/\-\−]{0,}?\*?[xy][\+\-\−][0-9\/\-\−]{0,}?\*?[xy][\+\-\−]?[0-9\/\-\−]{0,}(=0)?', Cartesian)]
 
+moodle_help_id = 0
+
+variable_storage = {}
+results = {}
 
 def generic_parse(s):
 	s = clean(s)
@@ -26,6 +30,14 @@ def generic_parse(s):
 def rad_to_deg(n):
 	return n*360/2/math.pi
 
+def gcd(a,b):
+	print(a, b)
+	if (b == 0):
+		return a
+	if (abs(a) < abs(b)):
+		return gcd(b, a)
+	return gcd(b, a%b)
+	
 
 #Bot commands
 
@@ -40,6 +52,38 @@ async def cross(ctx, arg1:Vector.parse, arg2:Vector.parse):
 	else:
 		await ctx.send('`{}`'.format(arg1.cross(arg2)))
 
+@bot.command()
+async def mag(ctx, v1:Vector.parse):
+	await ctx.send('`{}`'.format(v1.mag()))
+
+@bot.command()
+async def sqm(ctx, v1:Vector.parse):
+	await ctx.send('`{}`'.format(v1.sqmag()))
+
+@bot.command()
+async def projv(ctx, v1:Vector.parse, v2:Vector.parse):
+	await ctx.send('`{}`'.format(v1.projon(v2)))
+	
+@bot.command()
+async def proj(ctx, v1:Vector.parse, v2:generic_parse):
+	"""Finds projection of point onto a line.
+								Usage: !proj [p1] [line1]
+								Points must be a comma separated list surrounded by square brackets, without spaces. E.g [1,2,3]
+								Lines can be in Vectorized, Parametric, Slope y-intercept, or Cartesian forms."""
+	vecform = v2.converter.to_vectorized()
+	p1 = v1-vecform.pos
+	res = p1.projon(vecform.dir)+vecform.pos
+	await ctx.send('`{}`'.format(res))
+	
+@bot.command()
+async def dist(ctx, p1:Vector.parse, p2:Vector.parse):
+	m = (p2-p1).sqmag()
+	await ctx.send('`sqrt({})`'.format(m))
+	
+@bot.command()
+async def mul(ctx, p1:Vector.parse, c:frac.Fraction):
+	await ctx.send('`{}`'.format(p1*c))
+	
 @bot.command()
 async def vecfrom2(ctx, p1:Vector.parse, p2:Vector.parse):
 	"""Finds vectorized line equation from 2 points.
@@ -156,7 +200,101 @@ async def perp3(ctx, p1:Vector.parse, p2:Vector.parse, p3:Vector.parse):
 								Points must be a comma separated list surrounded by square brackets, without spaces. E.g [1,2,3]"""
 	l1 = p1-p2
 	l2 = p2-p3
-	await ctx.send('`{}`'.format(l1.cross(l2)))
+	res = l1.cross(l2)
+	await ctx.send('`{}`'.format(res))
+
+@bot.command()
+async def tovectemp(ctx, p1:ParameterizedPlane.parse):
+	res = p1.tovec()
+	await ctx.send('`{}`'.format(res))
+
+
+@bot.command()
+async def simplify(ctx, p1:Vector.parse):
+	tot_gcd = gcd(p1.coords[0], p1.coords[1])
+	for i in p1.coords[2:]:
+		tot_gcd = gcd(tot_gcd, i)
+	res = p1/tot_gcd
+	await ctx.send('`{}`'.format(res))
+	
+	
+@bot.command()
+async def intersection(ctx, l1:generic_parse, l2:generic_parse):
+	res = l1.intersection(l2)
+	await ctx.send('`{}`'.format(res))
+
+@bot.command()
+async def assignment(ctx, s):
+	A = Vector([int(s[0]), -int(s[1]), int(s[2])])
+	B = Vector([-int(s[3]), int(s[4]), -int(s[5])])
+	C = Vector([int(s[6]), -int(s[7]), int(s[8])])
+	AB = B - A
+	AC = C - A
+	BC = C - B
+	perim = [AB.sqmag(), AC.sqmag(), BC.sqmag()]
+	perim_exact = AB.mag() + AC.mag() + BC.mag()
+	angA = rad_to_deg(math.acos((BC.sqmag()-AB.sqmag()-AC.sqmag())/(-2*AB.mag()*AC.mag())))
+	area = (AB.cross(AC).sqmag()) #remember to re div by 2!!!
+	area_exact = (AB.cross(AC).mag())/2
+	volume = abs((A.dot(B.cross(C)))/6)
+	median_lineA = Vectorized.vec_from_2(A, (B+C)/2)
+	median_lineA.integerize()
+	median_lineB = Vectorized.vec_from_2(B, (A+C)/2)
+	centroid = median_lineA.intersection(median_lineB)
+	cartesian = CartesianPlane.from3(A,B,C)
+	distorigin = 3*volume/area_exact
+	distoriginexact = [3*volume*2, area]
+	perp = AB.cross(AC)
+	altitudeA = Vectorized(A, perp.cross(BC))
+	altitudeA.integerize()
+	altitudeB = Vectorized(B, perp.cross(AC))
+	orthocenter = altitudeA.intersection(altitudeB)
+	perpbiBC = Vectorized((B+C)/2, perp.cross(BC))
+	perpbiBC.integerize()
+	perpbiAC = Vectorized((A+C)/2, perp.cross(AC))
+	circum = perpbiAC.intersection(perpbiBC)
+	KH = orthocenter - circum
+	KG = centroid - circum
+	print(KH - KG*3)
+	#assert (KH - KG*3).coords == [0]*len((KH - KG*3).coords)
+	eulerline = Vectorized(circum, KH)
+	eulerline.integerize()
+	results_list = [A,B,C,AB] + perim + [perim_exact, angA, area, area_exact, volume, median_lineA, centroid, cartesian]
+	results_list2 = [distorigin] + distoriginexact + [altitudeA, orthocenter, perpbiBC, circum, eulerline]
+	await ctx.send('```A: {}\nB: {}\nC: {}\nAB: {}\nExact Perimeter: sqrt({}) + sqrt({}) + sqrt({})\nPerimeter: {}\nAngle at A: {}\nExact Area: sqrt({})/2\nArea: {}\nVolume: {}\nMedian line from A: {}\nCentroid: {}\nCartesian Equation: {}\n```'.format(*results_list))
+	await ctx.send('```Distance from origin: {}\nExact Distance from origin: {}/sqrt({})\nAltitude from A: {}\nOrthocenter: {}\nPerpendicular bisector of BC: {}\nCircumcenter: {}\nEuler line: {}```'.format(*results_list2))
+@bot.command()
+async def sethelp(ctx):
+	global moodle_help_id
+	g = ctx.guild
+	memp = g.get_member(ctx.author.id).guild_permissions.administrator
+	
+	if memp:
+		channel = ctx.message.channel_mentions[0]
+		moodle_help_id = channel
+		print(type(moodle_help_id))
+		await ctx.send('Channel set!')
+	else:
+		await ctx.send('You do not have proper permissions.')
+
+@bot.command()
+async def format(ctx, n:int):
+	global moodle_help_id
+	counter = 0
+	people_list = ctx.message.mentions
+	messages = []
+	print(moodle_help_id)
+	print(type(moodle_help_id))
+	async for message in moodle_help_id.history(limit=200):
+		if (counter >= n):
+			break
+		if message.author in people_list:
+			counter += 1
+			messages.append(message)
+	print(messages)
+	final_str = ''.join(['{}: {}\n'.format(m.author.name, m.content) for m in messages])
+	await ctx.send('```{}```'.format(final_str))
+#	pass
 
 
 @bot.event
@@ -171,4 +309,4 @@ async def on_message(message):
 
 
 
-bot.run('no token for you')
+bot.run('No token for you')
