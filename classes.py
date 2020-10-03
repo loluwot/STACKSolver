@@ -7,6 +7,8 @@ import re
 def clean(s):
 	return s.replace('−', '-').replace('⋅', '*').strip()
 
+def lcm(a,b):
+	return abs(a*b) // math.gcd(a, b)
 
 dimensions = ['x', 'y', 'z', 'a', 'b', 'c']
 
@@ -27,6 +29,9 @@ class Vector:
 	def __truediv__(self, scalar):
 		return Vector([x/scalar for x in self.coords])
 
+	def __mul__(self, scalar):
+		return Vector([x*scalar for x in self.coords])
+
 	def __str__(self):
 		return (('[' + '{},'*len(self.coords))[:-1] + ']').format(*self.coords)
 
@@ -41,7 +46,10 @@ class Vector:
 
 	def mag(self):
 		return math.sqrt(sum([x**2 for x in self.coords]))
-
+		
+	def sqmag(self):
+		return frac.Fraction(sum([x**2 for x in self.coords]))
+	
 	def dot(self, vec2):
 		return sum([x*y for x, y in zip(self.coords, vec2.coords)])
 
@@ -61,6 +69,11 @@ class Vector:
 			return self.cross(self + Vector([0, 0, 1]))
 
 		return -1
+	def projon(self, b):
+		sca = self.dot(b)/b.sqmag()
+		return b*sca
+
+	
 
 
 class Vectorized:
@@ -91,7 +104,16 @@ class Vectorized:
 	def intercepts(self):
 		return self.converter.to_param().intercepts()
 
-
+	def intersection(self, b):
+		return self.converter.to_param().intersection(b.converter.to_param())
+	
+	def integerize(self):
+		denoms = [x.denominator for x in self.dir.coords]
+		lc = 1
+		for d in denoms:
+			lc = lcm(lc, d)
+		self.dir = self.dir*lc
+	
 class Parameterized:
 	def __init__(self, eqs):
 		self.eqs = eqs
@@ -103,6 +125,7 @@ class Parameterized:
 
 	@staticmethod
 	def parse(s):
+		s = re.sub('[a-z]', 't', s)
 		s = ' ' + s + ' '
 		# print(s)
 		s = s.split('[')[1].split(']')[0]
@@ -110,7 +133,7 @@ class Parameterized:
 		arr = [clean(x) for x in arr]
 		pos = Vector([simple_eval(x.replace('t', '0')) for x in arr])
 		dir = Vector([simple_eval(x.replace('t', '1')) for x in arr]) - pos
-
+			
 		eqs = [[p, d] for p, d in zip(pos.coords, dir.coords)]
 
 		return Parameterized(eqs)
@@ -150,8 +173,16 @@ class Parameterized:
 					checkdup.append(temp)
 
 		return new_inters
-
-
+	
+	def intersection(self, a4):
+		
+		c, a = self.eqs[0]
+		c2, a2 = self.eqs[1]
+		c1, a1 = a4.eqs[0]
+		c3, a3 = a4.eqs[1]
+		s = (a2*c/a - c2 - a2*c1/a + c3)/(a2*a1/a - a3)
+		print(s)
+		return a4.eval(s)
 
 
 
@@ -178,6 +209,9 @@ class Cartesian:
 	def intercepts(self):
 		return self.converter.to_param().intercepts()
 
+	def intersection(self, b):
+		return self.converter.to_param().intersection(b.converter.to_param())
+	
 
 class SlopeY:
 
@@ -248,5 +282,96 @@ class Converter:
 	def to_param(self):
 		return Parameterized(self.eqs)
 
+#Planes
+
+class VectorPlane:
+	def __init__(self, pos, dirs):
+		self.pos = pos
+		self.dirs = dirs
+		
+	def __str__(self):
+		vals = [self.pos] + self.dirs
+		
+		return '{}+s*{}+t*{}'.format(*vals)
+		
+	@staticmethod
+	def parse(s):
+		s = clean(s)
+		vecs = s.split('+')
+		pos = Vector.parse(vecs[0])
+		dirs = [Vector.parse(v[2:]) for v in vecs[1:]]
+		return VectorPlane(pos, dirs)
+		
+	#@staticmethod
+	#def from3(p1, p2, p3):
+	#	
+	def normal(self):
+		return dirs[0].cross(dirs[1])
 
 
+class CartesianPlane:
+	def __init__(self, coeffs):
+		self.coeffs = coeffs
+		
+	def __str__(self):
+		return '{}*x+{}*y+{}*z+{}=0'.format(*self.coeffs)
+		
+	@staticmethod
+	def parse(s):
+		if ('=' in s):
+			s = s.split('=')[0]
+		s = clean(s)
+		d = simple_eval(s.replace('x', '0').replace('y', '0').replace('z', '0'))
+		a = simple_eval(s.replace('y', '0').replace('z', '0').replace('x', '1')) - d
+		b = simple_eval(s.replace('x', '0').replace('y', '1').replace('z', '0')) - d
+		c = simple_eval(s.replace('x', '0').replace('y', '0').replace('z', '1')) - d
+
+		return CartesianPlane([a, b, c, d])
+	
+	@staticmethod
+	def from3(a, b, c):
+		ab = b-a
+		ac = c-a
+		norm = ab.cross(ac)
+		d = -norm.dot(a)
+		return CartesianPlane(norm.coords + [d])
+		
+	def normal(self):
+		return Vector(self.coeffs[:3])
+		
+		
+class ParameterizedPlane:
+	def __init__(self, eqs):
+		self.eqs = eqs
+
+	def __str__(self):
+		st = ['{}+s*{}+t*{}'.format(p, d1, d2) for p,d1,d2 in self.eqs]
+		return (('[' + '{},'*len(st))[:-1] + ']').format(*st)
+
+	@staticmethod
+	def parse(s):
+		s = ' ' + s + ' '
+		# print(s)
+		s = s.split('[')[1].split(']')[0]
+		arr = s.split(',')
+		arr = [clean(x) for x in arr]
+		pos = Vector([simple_eval(x.replace('t', '0').replace('s', '0')) for x in arr])
+		dir1 = Vector([simple_eval(x.replace('t', '1').replace('s', '0')) for x in arr]) - pos
+		dir2 = Vector([simple_eval(x.replace('t', '0').replace('s', '1')) for x in arr]) - pos	
+		eqs = [[p, d1, d2] for p, d1, d2 in zip(pos.coords, dir1.coords, dir2.coords)]
+
+		return ParameterizedPlane(eqs)
+
+	def tovec(self):
+		pa = []
+		d1a = []
+		d2a = []
+		for a in self.eqs:
+			pa.append(a[0])
+			d1a.append(a[1])
+			d2a.append(a[2])
+		pa = Vector(pa)
+		d1a = Vector(d1a)
+		d2a = Vector(d2a)
+		return VectorPlane(pa, [d1a,d2a])
+	
