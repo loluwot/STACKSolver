@@ -224,7 +224,7 @@ async def intersection(ctx, l1:generic_parse, l2:generic_parse):
 	await ctx.send('`{}`'.format(res))
 
 @bot.command()
-async def assignment(ctx, s):
+async def trianglecalc(ctx, s):
 	A = Vector([int(s[0]), -int(s[1]), int(s[2])])
 	B = Vector([-int(s[3]), int(s[4]), -int(s[5])])
 	C = Vector([int(s[6]), -int(s[7]), int(s[8])])
